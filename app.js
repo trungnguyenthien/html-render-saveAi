@@ -5,7 +5,8 @@ const appState = {
   messages: [], // Array of Message objects
   collapsedState: new Map(), // msgId -> boolean
   expandedUserState: new Map(), // msgId -> boolean
-  renderCache: new Map() // msgId -> HTML string
+  renderCache: new Map(), // msgId -> HTML string
+  collapsedGroups: new Set() // Set of chatGroupIds that are collapsed
 };
 
 // Global variables for speech synthesis
@@ -510,6 +511,7 @@ function processLoadedFile(fileName, rawJsonString) {
   appState.collapsedState.clear();
   appState.expandedUserState.clear();
   appState.renderCache.clear();
+  appState.collapsedGroups.clear();
 
   // Populate collapse defaults
   appState.messages.forEach(msg => {
@@ -573,9 +575,64 @@ function resetCurrentFile() {
   appState.collapsedState.clear();
   appState.expandedUserState.clear();
   appState.renderCache.clear();
+  appState.collapsedGroups.clear();
 
   renderMessageList();
   updateRecentChips();
+}
+
+// Group messages sequentially by chatGroupId
+function groupMessages(messages) {
+  const groups = [];
+  let currentGroup = null;
+
+  messages.forEach(msg => {
+    const groupId = msg.chatGroupId || 'default_group';
+    if (!currentGroup || currentGroup.id !== groupId) {
+      currentGroup = {
+        id: groupId,
+        messages: []
+      };
+      groups.push(currentGroup);
+    }
+    currentGroup.messages.push(msg);
+  });
+
+  return groups;
+}
+
+// Expand / Collapse group toggler
+function toggleGroupCollapse(groupId) {
+  const isCollapsed = appState.collapsedGroups.has(groupId);
+  if (isCollapsed) {
+    appState.collapsedGroups.delete(groupId);
+  } else {
+    appState.collapsedGroups.add(groupId);
+  }
+
+  const groupElements = document.querySelectorAll(`.conversation-group[data-group-id="${groupId}"]`);
+  groupElements.forEach(groupEl => {
+    const nextCollapsedState = !isCollapsed;
+    if (nextCollapsedState) {
+      groupEl.classList.add('collapsed');
+    } else {
+      groupEl.classList.remove('collapsed');
+    }
+
+    // Update buttons in both header and footer of the group
+    const toggleBtns = groupEl.querySelectorAll('[data-action="toggle-group"]');
+    toggleBtns.forEach(btn => {
+      const icon = btn.querySelector('.material-symbols-outlined');
+      const label = btn.querySelector('span:not(.material-symbols-outlined)');
+      if (nextCollapsedState) {
+        if (icon) icon.textContent = 'expand_more';
+        if (label) label.textContent = 'Mở rộng hội thoại';
+      } else {
+        if (icon) icon.textContent = 'expand_less';
+        if (label) label.textContent = 'Thu gọn hội thoại';
+      }
+    });
+  });
 }
 
 // User Message Card Body Renderer
@@ -667,85 +724,122 @@ function renderMessageList() {
 
   messageList.innerHTML = '';
   
-  let lastGroupId = null;
+  // Group sequential messages by chatGroupId
+  const groups = groupMessages(appState.messages);
 
-  appState.messages.forEach(msg => {
-    // Optional Chat Group dividers
-    if (msg.chatGroupId && msg.chatGroupId !== lastGroupId) {
-      const divider = document.createElement('div');
-      divider.className = 'chat-group-divider';
-      
-      const shortGroupId = msg.chatGroupId.substring(0, 8);
-      divider.innerHTML = `<span class="chat-group-tag" title="Group ID: ${msg.chatGroupId}">Nhóm ${shortGroupId}</span>`;
-      messageList.appendChild(divider);
-      lastGroupId = msg.chatGroupId;
+  groups.forEach(group => {
+    const isGroupCollapsed = appState.collapsedGroups.has(group.id);
+    const shortGroupId = group.id.substring(0, 8);
+    const displayGroupId = group.id === 'default_group' ? 'Chung' : shortGroupId;
+
+    const groupSection = document.createElement('section');
+    groupSection.className = 'conversation-group';
+    groupSection.setAttribute('data-group-id', group.id);
+    if (isGroupCollapsed) {
+      groupSection.classList.add('collapsed');
     }
 
-    const card = document.createElement('article');
-    card.className = `message-card ${msg.role}`;
-    card.setAttribute('data-id', msg.id);
+    const headerIcon = isGroupCollapsed ? 'expand_more' : 'expand_less';
+    const headerLabel = isGroupCollapsed ? 'Mở rộng hội thoại' : 'Thu gọn hội thoại';
 
-    const isCollapsed = msg.role === 'assistant' && appState.collapsedState.get(msg.id);
-    if (isCollapsed) {
-      card.classList.add('collapsed');
-      card.setAttribute('aria-expanded', 'false');
-    } else if (msg.role === 'assistant') {
-      card.setAttribute('aria-expanded', 'true');
-    }
+    // Header toggler setup
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'group-header';
+    headerDiv.innerHTML = `
+      <span class="group-title" title="Group ID: ${group.id}">Cuộc hội thoại #${displayGroupId}</span>
+      <button class="group-toggle-btn" data-action="toggle-group" data-group-id="${group.id}" aria-label="${headerLabel}">
+        <span class="material-symbols-outlined">${headerIcon}</span>
+        <span>${headerLabel}</span>
+      </button>
+    `;
+    groupSection.appendChild(headerDiv);
 
-    // Header layout
-    const formattedDate = formatTime(msg.created_at);
-    let headerHTML = '';
+    // Group Content wrapper
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'group-content';
 
-    if (msg.role === 'user') {
-      headerHTML = `
-        <div class="card-header">
-          <div class="card-header-left">
-            <span class="role-badge">Bạn</span>
-            <span class="card-time">${formattedDate}</span>
-          </div>
-        </div>
-      `;
-    } else {
-      const modelLabel = msg.displayModel || msg.model || 'AI Assistant';
-      const previewText = getFirstLinePreview(msg);
-      headerHTML = `
-        <div class="card-header">
-          <div class="card-header-left">
-            <span class="role-badge" title="${msg.modelId || ''}">${escapeHtml(modelLabel)}</span>
-            <span class="card-time">${formattedDate}</span>
-          </div>
-          <span class="card-header-preview">${escapeHtml(previewText)}</span>
-          <span class="material-symbols-outlined card-chevron">expand_more</span>
-        </div>
-      `;
-    }
+    group.messages.forEach(msg => {
+      const card = document.createElement('article');
+      card.className = `message-card ${msg.role}`;
+      card.setAttribute('data-id', msg.id);
 
-    card.innerHTML = headerHTML;
-
-    // Body Container layout
-    const bodyContainer = document.createElement('div');
-    bodyContainer.className = 'card-body';
-    
-    if (msg.role === 'user') {
-      renderUserCardBody(msg, bodyContainer);
-    } else {
-      // If expanded initially, populate body
-      if (!isCollapsed) {
-        const rawText = getRawMessageText(msg);
-        const processedText = parseSpeakableTags(rawText);
-        const rawHtml = marked.parse(processedText);
-        const cleanHtml = DOMPurify.sanitize(rawHtml, purifyOptions);
-        bodyContainer.innerHTML = cleanHtml;
-        bodyContainer.querySelectorAll('pre code').forEach(block => {
-          hljs.highlightElement(block);
-        });
-        appState.renderCache.set(msg.id, bodyContainer.innerHTML);
+      const isCollapsed = msg.role === 'assistant' && appState.collapsedState.get(msg.id);
+      if (isCollapsed) {
+        card.classList.add('collapsed');
+        card.setAttribute('aria-expanded', 'false');
+      } else if (msg.role === 'assistant') {
+        card.setAttribute('aria-expanded', 'true');
       }
-    }
-    
-    card.appendChild(bodyContainer);
-    messageList.appendChild(card);
+
+      // Header layout
+      const formattedDate = formatTime(msg.created_at);
+      let headerHTML = '';
+
+      if (msg.role === 'user') {
+        headerHTML = `
+          <div class="card-header">
+            <div class="card-header-left">
+              <span class="role-badge">Bạn</span>
+              <span class="card-time">${formattedDate}</span>
+            </div>
+          </div>
+        `;
+      } else {
+        const modelLabel = msg.displayModel || msg.model || 'AI Assistant';
+        const previewText = getFirstLinePreview(msg);
+        headerHTML = `
+          <div class="card-header">
+            <div class="card-header-left">
+              <span class="role-badge" title="${msg.modelId || ''}">${escapeHtml(modelLabel)}</span>
+              <span class="card-time">${formattedDate}</span>
+            </div>
+            <span class="card-header-preview">${escapeHtml(previewText)}</span>
+            <span class="material-symbols-outlined card-chevron">expand_more</span>
+          </div>
+        `;
+      }
+
+      card.innerHTML = headerHTML;
+
+      // Body Container layout
+      const bodyContainer = document.createElement('div');
+      bodyContainer.className = 'card-body';
+      
+      if (msg.role === 'user') {
+        renderUserCardBody(msg, bodyContainer);
+      } else {
+        // If expanded initially, populate body
+        if (!isCollapsed) {
+          const rawText = getRawMessageText(msg);
+          const processedText = parseSpeakableTags(rawText);
+          const rawHtml = marked.parse(processedText);
+          const cleanHtml = DOMPurify.sanitize(rawHtml, purifyOptions);
+          bodyContainer.innerHTML = cleanHtml;
+          bodyContainer.querySelectorAll('pre code').forEach(block => {
+            hljs.highlightElement(block);
+          });
+          appState.renderCache.set(msg.id, bodyContainer.innerHTML);
+        }
+      }
+      
+      card.appendChild(bodyContainer);
+      contentDiv.appendChild(card);
+    });
+
+    groupSection.appendChild(contentDiv);
+
+    // Footer toggler setup
+    const footerDiv = document.createElement('div');
+    footerDiv.className = 'group-footer';
+    footerDiv.innerHTML = `
+      <button class="group-toggle-btn" data-action="toggle-group" data-group-id="${group.id}" aria-label="${headerLabel}">
+        <span class="material-symbols-outlined">${headerIcon}</span>
+        <span>${headerLabel}</span>
+      </button>
+    `;
+    groupSection.appendChild(footerDiv);
+
+    messageList.appendChild(groupSection);
   });
 }
 
@@ -937,6 +1031,15 @@ function setupEvents() {
 
   // Delegated clicks inside messages listing (Copy code, speech spans, expansions)
   document.getElementById('message-list').addEventListener('click', (e) => {
+    // Group expand/collapse toggle
+    const toggleGroupBtn = e.target.closest('[data-action="toggle-group"]');
+    if (toggleGroupBtn) {
+      e.stopPropagation();
+      const groupId = toggleGroupBtn.getAttribute('data-group-id');
+      toggleGroupCollapse(groupId);
+      return;
+    }
+
     // Speakable spans play/stop
     const speakSpan = e.target.closest('.speak');
     if (speakSpan) {

@@ -8,6 +8,8 @@ Công cụ web tĩnh (Static Web Tool) giúp tải, hiển thị và xem lịch 
 - **Tải file nhanh**: Kéo và thả hoặc chọn tệp tin JSON xuất từ SaveAI để tải cuộc hội thoại ngay lập tức.
 - **Thiết kế hiện đại**: Giao diện lấy cảm hứng từ Material Design (M3) cao cấp, hỗ trợ responsive hoàn hảo trên di động.
 - **Hiển thị tối ưu**:
+  - Tự động nhóm các tin nhắn theo từng phiên cuộc hội thoại (chat session) tương ứng.
+  - Hỗ trợ nút **Thu gọn / Mở rộng hội thoại** đặt tại cả **đầu** (Header) và **cuối** (Footer) của cuộc trò chuyện giúp dễ dàng ẩn/hiện toàn bộ luồng tin nhắn dài.
   - Tin nhắn dài của User tự động thu gọn (Xem thêm / Ẩn bớt).
   - Tin nhắn Assistant mặc định thu gọn và chỉ render Markdown + Tô sáng mã nguồn (Syntax Highlighting) khi được mở ra (Lazy Render) giúp cải thiện hiệu năng.
   - Hỗ trợ nút sao chép mã nguồn nhanh (Copy Code).
