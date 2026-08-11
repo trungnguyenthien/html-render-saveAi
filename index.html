@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SaveAI Viewer — Trình duyệt hội thoại AI</title>
+  <!-- Material Symbols Outlined for M3 Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Font Outfit for premium headings and Inter for body -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&family=Fira+Code&display=swap" rel="stylesheet">
+  <!-- Highlight.js CSS theme -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <!-- App Style -->
+  <link rel="stylesheet" href="index.css">
+  
+  <!-- CDN Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+
+  <!-- Viewer View -->
+  <main id="viewer-view" class="view-panel active">
+    <!-- App Bar -->
+    <header class="app-bar">
+      <div class="app-bar-content">
+        <span class="material-symbols-outlined logo-icon">auto_awesome</span>
+        <div class="title-area">
+          <h1 class="app-title">SaveAI Viewer</h1>
+          <span id="current-filename" class="app-subtitle">Chưa tải file</span>
+        </div>
+      </div>
+      <div class="app-bar-actions">
+        <button id="btn-load-header" class="icon-button" title="Tải file JSON mới" aria-label="Tải file JSON mới">
+          <span class="material-symbols-outlined">upload_file</span>
+        </button>
+        <button id="btn-reset-file" class="icon-button" title="Đóng file hiện tại" aria-label="Đóng file hiện tại" style="display: none;">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+        <a href="#/saved" class="icon-button" id="nav-to-saved" title="Xem danh sách file đã lưu" aria-label="Xem danh sách file đã lưu">
+          <span class="material-symbols-outlined">history</span>
+          <span id="saved-badge" class="badge">0</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Empty State -->
+    <section id="empty-state" class="empty-container">
+      <div id="drop-zone" class="drag-zone">
+        <span class="material-symbols-outlined drag-icon">cloud_upload</span>
+        <h2 class="drag-title">Kéo và thả file JSON hội thoại vào đây</h2>
+        <p class="drag-desc">Hoặc nhấp vào nút bên dưới để chọn từ thiết bị</p>
+        <button id="btn-select-file" class="btn btn-primary">
+          <span class="material-symbols-outlined">add</span> Chọn File JSON
+        </button>
+      </div>
+
+      <!-- Recent Files Section -->
+      <div id="recent-files-section" class="recent-container" style="display: none;">
+        <h3 class="section-title-small">File đã xem gần đây</h3>
+        <div id="recent-chips" class="chip-grid">
+          <!-- Recent chips injected here -->
+        </div>
+        <div class="view-all-link-wrapper">
+          <a href="#/saved" class="link-btn">Xem tất cả file đã lưu <span class="material-symbols-outlined">arrow_forward</span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Message List View -->
+    <section id="message-container" class="message-container" style="display: none;">
+      <div id="message-list" class="message-list">
+        <!-- Messages injected here -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Saved Files View -->
+  <main id="saved-view" class="view-panel">
+    <!-- App Bar -->
+    <header class="app-bar">
+      <div class="app-bar-content">
+        <a href="#/viewer" class="icon-button" aria-label="Quay lại">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </a>
+        <div class="title-area">
+          <h1 class="app-title">Đã lưu</h1>
+          <span class="app-subtitle">Danh sách tệp tin trên trình duyệt</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Saved Empty State -->
+    <section id="saved-empty-state" class="empty-container" style="display: none;">
+      <span class="material-symbols-outlined drag-icon">folder_open</span>
+      <h2 class="drag-title">Không tìm thấy file nào đã lưu</h2>
+      <p class="drag-desc">Tải lên một file JSON trong Viewer để tự động lưu vào trình duyệt.</p>
+      <button id="btn-select-file-saved" class="btn btn-primary">
+        <span class="material-symbols-outlined">add</span> Tải file mới
+      </button>
+    </section>
+
+    <!-- Saved Files List -->
+    <section id="saved-list-container" class="saved-list-container">
+      <div id="saved-list" class="saved-list">
+        <!-- Saved card items injected here -->
+      </div>
+    </section>
+
+    <!-- FAB for loading new file directly from Saved view -->
+    <button id="fab-load-file" class="fab" title="Tải file mới" aria-label="Tải file mới">
+      <span class="material-symbols-outlined">add</span>
+    </button>
+  </main>
+
+  <!-- Hidden File Input picker -->
+  <input type="file" id="file-input" accept=".json" style="display: none;" />
+
+  <!-- Native-looking confirmation Dialog modal -->
+  <dialog id="confirm-dialog" class="m3-dialog">
+    <form method="dialog" class="dialog-form">
+      <h3 class="dialog-title">Xác nhận xóa</h3>
+      <p class="dialog-message">Bạn có chắc chắn muốn xóa file này khỏi lưu trữ trình duyệt không? Hành động này không thể hoàn tác.</p>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn btn-text">Hủy</button>
+        <button value="confirm" class="btn btn-filled-error">Xóa</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>

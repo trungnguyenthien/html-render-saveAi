@@ -1,0 +1,34 @@
+[
+  {
+    "id": "mock_user_1",
+    "chatGroupId": "mock_group_1",
+    "role": "user",
+    "model": "gpt-4o",
+    "displayModel": "GPT-4o",
+    "modelId": "gpt-4o",
+    "contents": [
+      {
+        "type": "text",
+        "content": "Làm thế nào để chào hỏi lịch sự bằng tiếng Anh và tiếng Việt?"
+      }
+    ],
+    "created_at": "2026-08-11 15:00:00",
+    "updated_at": 1786434077890
+  },
+  {
+    "id": "mock_assistant_1",
+    "chatGroupId": "mock_group_1",
+    "role": "assistant",
+    "model": "gpt-4o",
+    "displayModel": "GPT-4o",
+    "modelId": "gpt-4o",
+    "contents": [
+      {
+        "type": "markdown",
+        "content": "Dưới đây là một số cách chào hỏi lịch sự trong cả hai ngôn ngữ:\n\n### 1. Bằng tiếng Anh (English)\n- Chào buổi sáng: [EN]Good morning[/EN]. Đây là câu chào lịch sự dùng trước 12h trưa.\n- Rất vui được gặp bạn: [EN]Nice to meet you[/EN] hoặc [EN]Pleasure to meet you[/EN].\n- Làm thế nào để hỏi thăm sức khỏe lịch sự? Bạn có thể nói: [EN]How have you been? [/EN] hoặc [EN]How do you do? [/EN] (trang trọng).\n\n### 2. Bằng tiếng Việt (Vietnamese)\n- Chào người lớn tuổi hoặc đối tác: [VN]Xin kính chào quý khách[/VN] hoặc [VN]Em xin chào anh chị ạ[/VN].\n- Hỏi thăm sức khỏe một cách nhẹ nhàng: [VN]Dạo này anh chị khỏe không ạ?[/VN].\n- Chúc một ngày tốt lành: [VN]Chúc bạn một ngày làm việc vui vẻ[/VN].\n\n### Ví dụ đoạn hội thoại ngắn:\n- **A:** [EN]Hello, how are you today?[/EN]\n- **B:** [VN]Chào bạn, hôm nay tôi rất khỏe, cảm ơn bạn![/VN]\n- **A:** [EN]That is great to hear![/EN]\n\n*Nhấp vào bất kỳ cụm từ gạch chân nét đứt nào ở trên để nghe phát âm trực tiếp từ hệ thống.*"
+      }
+    ],
+    "created_at": "2026-08-11 15:00:05",
+    "updated_at": 1786434077890
+  }
+]
