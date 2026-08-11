@@ -42,9 +42,6 @@
           <span class="material-symbols-outlined">history</span>
           <span id="saved-badge" class="badge">0</span>
         </a>
-        <a href="#/settings" class="icon-button" id="nav-to-settings" title="Cài đặt giọng đọc (TTS)" aria-label="Cài đặt giọng đọc (TTS)">
-          <span class="material-symbols-outlined">settings</span>
-        </a>
       </div>
     </header>
 
@@ -117,43 +114,6 @@
     </button>
   </main>
 
-  <!-- Settings View -->
-  <main id="settings-view" class="view-panel">
-    <!-- App Bar -->
-    <header class="app-bar">
-      <div class="app-bar-content">
-        <a href="#/viewer" class="icon-button" aria-label="Quay lại">
-          <span class="material-symbols-outlined">arrow_back</span>
-        </a>
-        <div class="title-area">
-          <h1 class="app-title">Cài đặt giọng đọc</h1>
-          <span class="app-subtitle">Chọn và nghe thử các accent giọng nói tiếng Anh</span>
-        </div>
-      </div>
-    </header>
-
-    <!-- Settings Container -->
-    <section class="settings-container">
-      <div class="settings-card">
-        <div class="settings-card-header">
-          <span class="material-symbols-outlined settings-card-icon">record_voice_over</span>
-          <div class="settings-card-title-group">
-            <h2 class="settings-card-title">Giọng đọc tiếng Anh khả dụng</h2>
-            <p class="settings-card-subtitle">Hệ thống tự động hiển thị và đồng bộ lựa chọn này cho toàn bộ hội thoại.</p>
-          </div>
-        </div>
-
-        <div id="voice-loading" class="voice-loading-state">
-          <span class="spinner"></span>
-          <p>Đang quét các giọng đọc khả dụng...</p>
-        </div>
-
-        <div id="voice-list" class="voice-list-grid" style="display: none;">
-          <!-- Voice cards injected here -->
-        </div>
-      </div>
-    </section>
-  </main>
 
   <!-- Hidden File Input picker -->
   <input type="file" id="file-input" accept=".json" style="display: none;" />

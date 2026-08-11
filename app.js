@@ -148,7 +148,7 @@ function navigate(updateDOM, direction) {
 }
 
 function getTransitionDirection(fromView, toView) {
-  const order = { 'viewer': 1, 'saved': 2, 'settings': 3 };
+  const order = { 'viewer': 1, 'saved': 2 };
   const fromOrder = order[fromView] || 1;
   const toOrder = order[toView] || 1;
   return toOrder >= fromOrder ? 'forward' : 'backward';
@@ -186,9 +186,6 @@ function handleHashChange() {
   if (hash === '#/saved') {
     navigateTo('saved');
     renderSavedList();
-  } else if (hash === '#/settings') {
-    navigateTo('settings');
-    renderVoiceSettingsList();
   } else {
     // Default fallback to viewer view
     navigateTo('viewer');
@@ -268,9 +265,6 @@ function updateRecentChips() {
 function loadVoices() {
   if (window.speechSynthesis) {
     voices = window.speechSynthesis.getVoices();
-    if (appState.currentView === 'settings') {
-      renderVoiceSettingsList();
-    }
   }
 }
 
@@ -281,59 +275,32 @@ if (window.speechSynthesis) {
   }
 }
 
-function getBestVoiceForLang(langCode) {
-  const targetPrefix = langCode.substring(0, 2).toLowerCase(); // 'en'
-  
-  if (targetPrefix === 'en') {
-    const savedVoiceName = localStorage.getItem('saveai:ttsVoice');
-    if (savedVoiceName) {
-      const matched = voices.find(v => v.name === savedVoiceName);
-      if (matched) return matched;
-    }
+function getAmericanVoice() {
+  const voicesList = window.speechSynthesis.getVoices();
+
+  // 1. Ưu tiên chính xác en-US
+  const americanVoice = voicesList.find(
+    voice => voice.lang === "en-US"
+  );
+
+  if (americanVoice) {
+    return americanVoice;
   }
 
-  const filtered = voices.filter(v => {
-    if (!v.lang) return false;
-    const vLang = v.lang.replace('_', '-').toLowerCase();
-    return vLang.startsWith(targetPrefix);
-  });
-  if (filtered.length === 0) return null;
+  // 2. Nếu không có, tìm biến thể en-US
+  const americanVariant = voicesList.find(
+    voice => voice.lang.startsWith("en-US")
+  );
 
-  // Prioritize younger, warmer, and more natural sounding male voices
-  // 'nathan' is macOS's warm natural male voice
-  // 'evan' is macOS's younger natural male voice
-  // Siri voices (Voice 1, Voice 3, Voice 4 are male Siri voices) are highly natural and young
-  const priorityMaleNames = [
-    'nathan',
-    'evan',
-    'siri',
-    'aaron',
-    'oliver',
-    'daniel',
-    'alex',
-    'tom',
-    'david'
-  ];
-
-  for (const nameKeyword of priorityMaleNames) {
-    const matchedVoice = filtered.find(v => {
-      const name = v.name.toLowerCase();
-      // Ensure we don't accidentally pick a Siri female voice or other females
-      const isFemale = name.includes('female') || name.includes('samantha') || name.includes('karen') || name.includes('moira') || name.includes('linh') || name.includes('fiona');
-      return name.includes(nameKeyword) && !isFemale;
-    });
-    if (matchedVoice) return matchedVoice;
+  if (americanVariant) {
+    return americanVariant;
   }
 
-  // General fallback for any voice containing male descriptors
-  const generalMaleVoice = filtered.find(v => {
-    const name = v.name.toLowerCase();
-    return name.includes('male') || name.includes('masculine') || name.includes('guy');
-  });
-
-  return generalMaleVoice || filtered[0];
+  // 3. Fallback sang bất kỳ English voice nào
+  return voicesList.find(
+    voice => voice.lang.startsWith("en")
+  );
 }
-
 function toggleSpeak(span, lang) {
   if (!window.speechSynthesis) {
     showToast('Phát âm không được hỗ trợ trên thiết bị của bạn.', 'error');
@@ -360,22 +327,18 @@ function toggleSpeak(span, lang) {
   if (!textToSpeak) return;
 
   const utterance = new SpeechSynthesisUtterance(textToSpeak);
-  utterance.lang = (lang === 'en') ? 'en-US' : ((lang === 'vi') ? 'vi-VN' : lang);
+  utterance.lang = 'en-US';
 
-  const voice = getBestVoiceForLang(utterance.lang);
+  const voice = getAmericanVoice();
   
   // Debug logs to troubleshoot speech synthesis issues
   console.log(`[TTS Debug] Request: "${textToSpeak}" (lang: ${utterance.lang})`);
-  console.log(`[TTS Debug] Total available system voices: ${voices.length}`);
   console.log(`[TTS Debug] Matched voice:`, voice ? `${voice.name} (${voice.lang})` : 'None');
 
   if (voice) {
     utterance.voice = voice;
   } else {
-    console.warn(`[TTS Warning] No native voice found matching: ${utterance.lang}`);
-    if (utterance.lang.startsWith('vi')) {
-      showToast('Thiết bị của bạn chưa cài đặt giọng đọc Tiếng Việt. Trình duyệt đang tự đọc bằng giọng US mặc định.', 'error');
-    }
+    console.warn(`[TTS Warning] No native en-US voice found.`);
   }
 
   utterance.onend = () => {
@@ -412,187 +375,6 @@ function clearSpeakingState() {
   }
   currentUtterance = null;
 }
-
-// TTS Voice Settings page helpers
-function sortEnglishVoices(voicesList) {
-  const preferredNames = ['nathan', 'evan', 'aaron', 'oliver', 'alex'];
-  
-  return voicesList.slice().sort((a, b) => {
-    const aLang = a.lang.toLowerCase();
-    const bLang = b.lang.toLowerCase();
-    const aName = a.name.toLowerCase();
-    const bName = b.name.toLowerCase();
-
-    const aIsUS = aLang.startsWith('en-us');
-    const bIsUS = bLang.startsWith('en-us');
-
-    // 1. Prioritize en-US
-    if (aIsUS && !bIsUS) return -1;
-    if (!aIsUS && bIsUS) return 1;
-
-    // 2. Prioritize preferred names
-    const aPrefIdx = preferredNames.findIndex(name => aName.includes(name));
-    const bPrefIdx = preferredNames.findIndex(name => bName.includes(name));
-    
-    if (aPrefIdx !== -1 && bPrefIdx === -1) return -1;
-    if (aPrefIdx === -1 && bPrefIdx !== -1) return 1;
-    if (aPrefIdx !== -1 && bPrefIdx !== -1) return aPrefIdx - bPrefIdx;
-
-    // 3. Alphabetical fallback
-    return a.name.localeCompare(b.name);
-  });
-}
-
-function isVoiceMale(voice) {
-  const name = voice.name.toLowerCase();
-  
-  // Exclude known female voice names/keywords
-  const femaleKeywords = [
-    'female', 'samantha', 'karen', 'moira', 'linh', 'fiona', 'veena', 
-    'tessa', 'zoe', 'susan', 'hazel', 'heera', 'zira', 'haruka', 
-    'kyoko', 'sin-ji', 'mei-jia', 'sharon', 'siri voice 2'
-  ];
-  if (femaleKeywords.some(kw => name.includes(kw))) {
-    return false;
-  }
-
-  // Include known male voice names/keywords
-  const maleKeywords = [
-    'male', 'masculine', 'guy', 'nathan', 'evan', 'aaron', 'oliver', 
-    'daniel', 'alex', 'david', 'mark', 'george', 'ravi', 'james',
-    'siri voice 1', 'siri voice 3', 'siri voice 4'
-  ];
-  if (maleKeywords.some(kw => name.includes(kw))) {
-    return true;
-  }
-
-  // Siri voices (default to male unless explicitly voice 2)
-  if (name.includes('siri') && !name.includes('voice 2')) {
-    return true;
-  }
-
-  return false;
-}
-
-function renderVoiceSettingsList() {
-  const voiceLoading = document.getElementById('voice-loading');
-  const voiceList = document.getElementById('voice-list');
-  if (!voiceLoading || !voiceList) return;
-
-  const allVoices = window.speechSynthesis.getVoices();
-  const englishVoices = allVoices.filter(v => v.lang.toLowerCase().startsWith('en'));
-
-  if (englishVoices.length === 0) {
-    voiceLoading.style.display = 'block';
-    voiceLoading.innerHTML = `
-      <span class="material-symbols-outlined text-warning" style="font-size: 40px; color: var(--color-error);">warning</span>
-      <p style="margin-top: 8px;">Không tìm thấy giọng đọc tiếng Anh nào trên trình duyệt/thiết bị này.</p>
-    `;
-    voiceList.style.display = 'none';
-    return;
-  }
-
-  // Filter only male voices
-  const maleVoices = englishVoices.filter(isVoiceMale);
-  const displayVoices = maleVoices.length > 0 ? maleVoices : englishVoices;
-
-  voiceLoading.style.display = 'none';
-  voiceList.style.display = 'grid';
-  voiceList.innerHTML = '';
-
-  const sortedVoices = sortEnglishVoices(displayVoices);
-  const activeVoiceName = localStorage.getItem('saveai:ttsVoice') || '';
-
-  sortedVoices.forEach(voice => {
-    const isSelected = activeVoiceName ? (voice.name === activeVoiceName) : false;
-    
-    const card = document.createElement('div');
-    card.className = `voice-card ${isSelected ? 'selected' : ''}`;
-    card.setAttribute('data-voice-name', voice.name);
-
-    // Custom properties metadata
-    const isMale = isVoiceMale(voice);
-    const genderTag = isMale ? 'Giọng Nam' : 'Giọng Nữ';
-    const accentTag = voice.lang.toUpperCase();
-
-    card.innerHTML = `
-      <div class="voice-card-radio-wrapper">
-        <div class="voice-radio-circle"></div>
-      </div>
-      <div class="voice-card-info">
-        <div class="voice-card-name-row">
-          <span class="voice-name">${escapeHtml(voice.name)}</span>
-          ${isSelected ? '<span class="voice-status-badge">Đang dùng</span>' : ''}
-        </div>
-        <div class="voice-card-meta">
-          <span class="voice-meta-badge accent-badge">${accentTag}</span>
-          <span class="voice-meta-badge gender-badge">${genderTag}</span>
-          ${voice.localService ? '<span class="voice-meta-badge local-badge">Offline</span>' : ''}
-        </div>
-      </div>
-      <div class="voice-card-actions">
-        <button class="voice-play-demo-btn" data-voice-name="${escapeHtml(voice.name)}" title="Nghe thử giọng này" aria-label="Nghe thử giọng này">
-          <span class="material-symbols-outlined">play_circle</span>
-        </button>
-      </div>
-    `;
-
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.voice-play-demo-btn')) return;
-      selectVoice(voice.name);
-    });
-
-    voiceList.appendChild(card);
-  });
-}
-
-function selectVoice(voiceName) {
-  localStorage.setItem('saveai:ttsVoice', voiceName);
-  renderVoiceSettingsList();
-  showToast(`Đã chọn giọng đọc "${voiceName}"`);
-}
-
-function playVoiceDemo(voiceName) {
-  if (!window.speechSynthesis) return;
-
-  window.speechSynthesis.cancel();
-
-  const allVoices = window.speechSynthesis.getVoices();
-  const voice = allVoices.find(v => v.name === voiceName);
-  if (!voice) return;
-
-  const demoText = `Hello! This is a test of the ${voice.name} voice accent. How does it sound?`;
-  
-  const utterance = new SpeechSynthesisUtterance(demoText);
-  utterance.voice = voice;
-  utterance.lang = voice.lang;
-
-  const playBtns = document.querySelectorAll(`.voice-play-demo-btn[data-voice-name="${CSS.escape(voiceName)}"]`);
-  playBtns.forEach(btn => {
-    const icon = btn.querySelector('.material-symbols-outlined');
-    if (icon) icon.textContent = 'volume_up';
-    btn.classList.add('playing');
-  });
-
-  utterance.onend = () => {
-    playBtns.forEach(btn => {
-      const icon = btn.querySelector('.material-symbols-outlined');
-      if (icon) icon.textContent = 'play_circle';
-      btn.classList.remove('playing');
-    });
-  };
-
-  utterance.onerror = () => {
-    playBtns.forEach(btn => {
-      const icon = btn.querySelector('.material-symbols-outlined');
-      if (icon) icon.textContent = 'play_circle';
-      btn.classList.remove('playing');
-    });
-  };
-
-  window.speechSynthesis.speak(utterance);
-}
-
 // Copy Code Clipboard Handler
 function copyCodeBlock(btn, codeElement) {
   const codeText = codeElement.textContent;
@@ -1319,19 +1101,6 @@ function setupEvents() {
       }
     }
   });
-
-  // Settings view clicks
-  const settingsVoiceList = document.getElementById('voice-list');
-  if (settingsVoiceList) {
-    settingsVoiceList.addEventListener('click', (e) => {
-      const playBtn = e.target.closest('.voice-play-demo-btn');
-      if (playBtn) {
-        e.stopPropagation();
-        const voiceName = playBtn.getAttribute('data-voice-name');
-        playVoiceDemo(voiceName);
-      }
-    });
-  }
 
   // Routing changes
   window.addEventListener('hashchange', handleHashChange);

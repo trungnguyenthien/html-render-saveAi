@@ -13,11 +13,10 @@ Công cụ web tĩnh (Static Web Tool) giúp tải, hiển thị và xem lịch 
   - Tin nhắn dài của User tự động thu gọn ở mức 100 ký tự ban đầu.
   - Tin nhắn Assistant mặc định thu gọn và chỉ render Markdown + Tô sáng mã nguồn (Syntax Highlighting) khi được mở ra (Lazy Render) giúp cải thiện hiệu năng.
   - Hỗ trợ nút sao chép mã nguồn nhanh (Copy Code).
-- **Phát âm tiếng Anh**: Chạm vào các cụm từ tiếng Anh được bọc trong thẻ `[EN]...[/EN]` (in đậm, gạch chân nét đứt) để nghe phát âm.
-- **Tùy chọn Accent Giọng Đọc**: Trang **Cài đặt** (`#/settings`) tự động lọc và hiển thị danh sách các giọng đọc tiếng Anh **giọng Nam** (male voices) khả dụng trên thiết bị (ưu tiên các accent US lên đầu). Cho phép bấm câu chào ngắn để nghe thử và lưu tùy chọn giọng đọc vào lưu trữ trình duyệt để áp dụng đồng bộ cho toàn bộ ứng dụng.
+- **Phát âm tiếng Anh**: Chạm vào các cụm từ tiếng Anh được bọc trong thẻ `[EN]...[/EN]` (in đậm, gạch chân nét đứt) để nghe phát âm giọng đọc chuẩn Mỹ (en-US) tự động tìm kiếm và đồng bộ bằng thuật toán getAmericanVoice.
 - **Định dạng tiếng Việt**: Các thẻ `[VN]...[/VN]` tự động chuyển thành chữ in nghiêng hiển thị rõ ràng.
 - **Lưu trữ cục bộ**: Tự động lưu các file đã tải vào `localStorage` của trình duyệt. Trang **Đã lưu** (`#/saved`) hiển thị danh sách lịch sử, thời gian mở cuối cùng, số tin nhắn và cho phép mở lại hoặc xóa.
-- **Điều hướng mượt mà**: Sử dụng **View Transitions API** để tạo hiệu ứng chuyển trang (slide-in) native khi chuyển đổi giữa bộ xem (`#/viewer`), trang đã lưu (`#/saved`), và cài đặt (`#/settings`).
+- **Điều hướng mượt mà**: Sử dụng **View Transitions API** để tạo hiệu ứng chuyển trang (slide-in) native khi chuyển đổi giữa bộ xem (`#/viewer`) và trang lịch sử (`#/saved`).
 
 ## Hướng dẫn sử dụng
 1. Mở file [index.html](index.html) trực tiếp trên trình duyệt, hoặc chạy máy chủ cục bộ:
