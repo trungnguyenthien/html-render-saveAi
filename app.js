@@ -581,57 +581,97 @@ function resetCurrentFile() {
   updateRecentChips();
 }
 
-// Group messages sequentially by chatGroupId
-function groupMessages(messages) {
-  const groups = [];
-  let currentGroup = null;
+// Toggle individual message card (User see-more / Assistant collapse)
+function toggleMessageCard(msgId) {
+  const message = appState.messages.find(m => m.id === msgId);
+  if (!message) return;
 
-  messages.forEach(msg => {
-    const groupId = msg.chatGroupId || 'default_group';
-    if (!currentGroup || currentGroup.id !== groupId) {
-      currentGroup = {
-        id: groupId,
-        messages: []
-      };
-      groups.push(currentGroup);
+  const cardEl = document.querySelector(`.message-card[data-id="${msgId}"]`);
+  if (!cardEl) return;
+
+  if (message.role === 'user') {
+    const isExpanded = appState.expandedUserState.get(msgId);
+    const nextState = !isExpanded;
+    appState.expandedUserState.set(msgId, nextState);
+
+    // Update card body
+    const bodyContainer = cardEl.querySelector('.card-body');
+    renderUserCardBody(message, bodyContainer);
+
+    // Update toggler buttons UI
+    updateCardTogglerUI(cardEl, msgId, nextState, 'user');
+  } else {
+    const isCollapsed = appState.collapsedState.get(msgId);
+    const nextState = !isCollapsed; // true -> collapsed, false -> expanded
+    appState.collapsedState.set(msgId, nextState);
+
+    const bodyContainer = cardEl.querySelector('.card-body');
+
+    if (nextState) {
+      cardEl.classList.add('collapsed');
+      cardEl.setAttribute('aria-expanded', 'false');
+      bodyContainer.style.display = 'none';
+      
+      const footer = cardEl.querySelector('.card-footer');
+      if (footer) footer.style.display = 'none';
+    } else {
+      cardEl.classList.remove('collapsed');
+      cardEl.setAttribute('aria-expanded', 'true');
+      bodyContainer.style.display = 'block';
+
+      // Lazily render body content if not cached
+      if (!appState.renderCache.has(msgId)) {
+        const rawText = getRawMessageText(message);
+        const processedText = parseSpeakableTags(rawText);
+        const rawHtml = marked.parse(processedText);
+        const cleanHtml = DOMPurify.sanitize(rawHtml, purifyOptions);
+
+        bodyContainer.innerHTML = cleanHtml;
+        bodyContainer.querySelectorAll('pre code').forEach(block => {
+          hljs.highlightElement(block);
+        });
+        appState.renderCache.set(msgId, bodyContainer.innerHTML);
+      } else {
+        bodyContainer.innerHTML = appState.renderCache.get(msgId);
+      }
+
+      // Show or append footer
+      let footer = cardEl.querySelector('.card-footer');
+      if (!footer) {
+        footer = document.createElement('div');
+        footer.className = 'card-footer';
+        footer.innerHTML = `
+          <button class="card-toggle-btn" data-action="toggle-card" data-id="${msgId}" aria-label="Thu gọn tin nhắn">
+            <span class="material-symbols-outlined">expand_less</span>
+            <span>Thu gọn tin nhắn</span>
+          </button>
+        `;
+        cardEl.appendChild(footer);
+      } else {
+        footer.style.display = 'flex';
+      }
     }
-    currentGroup.messages.push(msg);
-  });
 
-  return groups;
+    updateCardTogglerUI(cardEl, msgId, !nextState, 'assistant');
+  }
 }
 
-// Expand / Collapse group toggler
-function toggleGroupCollapse(groupId) {
-  const isCollapsed = appState.collapsedGroups.has(groupId);
-  if (isCollapsed) {
-    appState.collapsedGroups.delete(groupId);
-  } else {
-    appState.collapsedGroups.add(groupId);
-  }
-
-  const groupElements = document.querySelectorAll(`.conversation-group[data-group-id="${groupId}"]`);
-  groupElements.forEach(groupEl => {
-    const nextCollapsedState = !isCollapsed;
-    if (nextCollapsedState) {
-      groupEl.classList.add('collapsed');
-    } else {
-      groupEl.classList.remove('collapsed');
-    }
-
-    // Update buttons in both header and footer of the group
-    const toggleBtns = groupEl.querySelectorAll('[data-action="toggle-group"]');
-    toggleBtns.forEach(btn => {
-      const icon = btn.querySelector('.material-symbols-outlined');
-      const label = btn.querySelector('span:not(.material-symbols-outlined)');
-      if (nextCollapsedState) {
-        if (icon) icon.textContent = 'expand_more';
-        if (label) label.textContent = 'Mở rộng hội thoại';
-      } else {
-        if (icon) icon.textContent = 'expand_less';
-        if (label) label.textContent = 'Thu gọn hội thoại';
+function updateCardTogglerUI(cardEl, msgId, isExpanded, role) {
+  const toggleBtns = cardEl.querySelectorAll('[data-action="toggle-card"]');
+  toggleBtns.forEach(btn => {
+    const icon = btn.querySelector('.material-symbols-outlined');
+    const label = btn.querySelector('span:not(.material-symbols-outlined)');
+    const isFooterBtn = btn.closest('.card-footer') !== null;
+    
+    if (isExpanded) {
+      if (icon) icon.textContent = 'expand_less';
+      if (label) {
+        label.textContent = isFooterBtn ? 'Thu gọn tin nhắn' : 'Thu gọn';
       }
-    });
+    } else {
+      if (icon) icon.textContent = 'expand_more';
+      if (label) label.textContent = 'Mở rộng';
+    }
   });
 }
 
@@ -647,61 +687,44 @@ function renderUserCardBody(message, container) {
     return;
   }
 
+  const cardEl = container.closest('.message-card');
+
   if (isExpanded) {
     const processedText = parseSpeakableTags(rawText);
     const html = DOMPurify.sanitize(marked.parse(processedText), purifyOptions);
-    container.innerHTML = `
-      <div class="user-text-content">${html}</div>
-      <button class="see-more-btn" data-action="toggle-user" data-id="${message.id}">See less</button>
-    `;
+    container.innerHTML = `<div class="user-text-content">${html}</div>`;
+    
+    // Show/create footer
+    if (cardEl) {
+      let footer = cardEl.querySelector('.card-footer');
+      if (!footer) {
+        footer = document.createElement('div');
+        footer.className = 'card-footer';
+        footer.innerHTML = `
+          <button class="card-toggle-btn" data-action="toggle-card" data-id="${message.id}" aria-label="Thu gọn tin nhắn">
+            <span class="material-symbols-outlined">expand_less</span>
+            <span>Thu gọn tin nhắn</span>
+          </button>
+        `;
+        cardEl.appendChild(footer);
+      } else {
+        footer.style.display = 'flex';
+      }
+    }
   } else {
     const truncatedText = rawText.substring(0, 100) + '...';
     const safeText = escapeHtml(truncatedText);
-    container.innerHTML = `
-      <div class="user-text-content" style="white-space: pre-wrap;">${safeText}</div>
-      <button class="see-more-btn" data-action="toggle-user" data-id="${message.id}">See more</button>
-    `;
-  }
-}
-
-// Assistant Collapse Card toggler
-function toggleAssistantCollapse(messageId, cardElement) {
-  const isCollapsed = cardElement.classList.contains('collapsed');
-  const newCollapsedState = !isCollapsed;
-  appState.collapsedState.set(messageId, newCollapsedState);
-
-  if (newCollapsedState) {
-    cardElement.classList.add('collapsed');
-    cardElement.setAttribute('aria-expanded', 'false');
-  } else {
-    cardElement.classList.remove('collapsed');
-    cardElement.setAttribute('aria-expanded', 'true');
-
-    const bodyContainer = cardElement.querySelector('.card-body');
-    if (!appState.renderCache.has(messageId)) {
-      const message = appState.messages.find(m => m.id === messageId);
-      const rawText = getRawMessageText(message);
-
-      const processedText = parseSpeakableTags(rawText);
-      const rawHtml = marked.parse(processedText);
-      const cleanHtml = DOMPurify.sanitize(rawHtml, purifyOptions);
-
-      bodyContainer.innerHTML = cleanHtml;
-
-      // Apply highlighting
-      bodyContainer.querySelectorAll('pre code').forEach(block => {
-        hljs.highlightElement(block);
-      });
-
-      // Cache output
-      appState.renderCache.set(messageId, bodyContainer.innerHTML);
-    } else {
-      bodyContainer.innerHTML = appState.renderCache.get(messageId);
+    container.innerHTML = `<div class="user-text-content" style="white-space: pre-wrap;">${safeText}</div>`;
+    
+    // Hide footer if it exists
+    if (cardEl) {
+      const footer = cardEl.querySelector('.card-footer');
+      if (footer) {
+        footer.style.display = 'none';
+      }
     }
   }
-}
-
-// Viewer Message List Render
+}// Viewer Message List Render
 function renderMessageList() {
   const messageList = document.getElementById('message-list');
   const messageContainer = document.getElementById('message-container');
@@ -724,58 +747,55 @@ function renderMessageList() {
 
   messageList.innerHTML = '';
   
-  // Group sequential messages by chatGroupId
-  const groups = groupMessages(appState.messages);
+  let lastGroupId = null;
 
-  groups.forEach(group => {
-    const isGroupCollapsed = appState.collapsedGroups.has(group.id);
-    const shortGroupId = group.id.substring(0, 8);
-    const displayGroupId = group.id === 'default_group' ? 'Chung' : shortGroupId;
-
-    const groupSection = document.createElement('section');
-    groupSection.className = 'conversation-group';
-    groupSection.setAttribute('data-group-id', group.id);
-    if (isGroupCollapsed) {
-      groupSection.classList.add('collapsed');
+  appState.messages.forEach(msg => {
+    // Render group divider line
+    if (msg.chatGroupId && msg.chatGroupId !== lastGroupId) {
+      const divider = document.createElement('div');
+      divider.className = 'chat-group-divider';
+      const shortGroupId = msg.chatGroupId.substring(0, 8);
+      divider.innerHTML = `<span class="chat-group-tag" title="Group ID: ${msg.chatGroupId}">Nhóm ${shortGroupId}</span>`;
+      messageList.appendChild(divider);
+      lastGroupId = msg.chatGroupId;
     }
 
-    const headerIcon = isGroupCollapsed ? 'expand_more' : 'expand_less';
-    const headerLabel = isGroupCollapsed ? 'Mở rộng hội thoại' : 'Thu gọn hội thoại';
+    const card = document.createElement('article');
+    card.className = `message-card ${msg.role}`;
+    card.setAttribute('data-id', msg.id);
 
-    // Header toggler setup
-    const headerDiv = document.createElement('div');
-    headerDiv.className = 'group-header';
-    headerDiv.innerHTML = `
-      <span class="group-title" title="Group ID: ${group.id}">Cuộc hội thoại #${displayGroupId}</span>
-      <button class="group-toggle-btn" data-action="toggle-group" data-group-id="${group.id}" aria-label="${headerLabel}">
-        <span class="material-symbols-outlined">${headerIcon}</span>
-        <span>${headerLabel}</span>
-      </button>
-    `;
-    groupSection.appendChild(headerDiv);
+    const isCollapsed = msg.role === 'assistant' && appState.collapsedState.get(msg.id);
+    if (isCollapsed) {
+      card.classList.add('collapsed');
+      card.setAttribute('aria-expanded', 'false');
+    } else if (msg.role === 'assistant') {
+      card.setAttribute('aria-expanded', 'true');
+    }
 
-    // Group Content wrapper
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'group-content';
+    const formattedDate = formatTime(msg.created_at);
+    let headerHTML = '';
 
-    group.messages.forEach(msg => {
-      const card = document.createElement('article');
-      card.className = `message-card ${msg.role}`;
-      card.setAttribute('data-id', msg.id);
+    if (msg.role === 'user') {
+      const rawText = getRawMessageText(msg);
+      const showToggle = rawText.length > 100;
+      const isExpanded = appState.expandedUserState.get(msg.id);
 
-      const isCollapsed = msg.role === 'assistant' && appState.collapsedState.get(msg.id);
-      if (isCollapsed) {
-        card.classList.add('collapsed');
-        card.setAttribute('aria-expanded', 'false');
-      } else if (msg.role === 'assistant') {
-        card.setAttribute('aria-expanded', 'true');
-      }
-
-      // Header layout
-      const formattedDate = formatTime(msg.created_at);
-      let headerHTML = '';
-
-      if (msg.role === 'user') {
+      if (showToggle) {
+        const toggleIcon = isExpanded ? 'expand_less' : 'expand_more';
+        const toggleLabel = isExpanded ? 'Thu gọn' : 'Mở rộng';
+        headerHTML = `
+          <div class="card-header">
+            <div class="card-header-left">
+              <span class="role-badge">Bạn</span>
+              <span class="card-time">${formattedDate}</span>
+            </div>
+            <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="${toggleLabel}">
+              <span class="material-symbols-outlined">${toggleIcon}</span>
+              <span>${toggleLabel}</span>
+            </button>
+          </div>
+        `;
+      } else {
         headerHTML = `
           <div class="card-header">
             <div class="card-header-left">
@@ -784,62 +804,78 @@ function renderMessageList() {
             </div>
           </div>
         `;
-      } else {
-        const modelLabel = msg.displayModel || msg.model || 'AI Assistant';
-        const previewText = getFirstLinePreview(msg);
-        headerHTML = `
-          <div class="card-header">
-            <div class="card-header-left">
-              <span class="role-badge" title="${msg.modelId || ''}">${escapeHtml(modelLabel)}</span>
-              <span class="card-time">${formattedDate}</span>
-            </div>
-            <span class="card-header-preview">${escapeHtml(previewText)}</span>
-            <span class="material-symbols-outlined card-chevron">expand_more</span>
+      }
+    } else {
+      const modelLabel = msg.displayModel || msg.model || 'AI Assistant';
+      const previewText = getFirstLinePreview(msg);
+      const toggleIcon = isCollapsed ? 'expand_more' : 'expand_less';
+      const toggleLabel = isCollapsed ? 'Mở rộng' : 'Thu gọn';
+
+      headerHTML = `
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="role-badge" title="${msg.modelId || ''}">${escapeHtml(modelLabel)}</span>
+            <span class="card-time">${formattedDate}</span>
           </div>
-        `;
-      }
+          <span class="card-header-preview">${escapeHtml(previewText)}</span>
+          <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="${toggleLabel}">
+            <span class="material-symbols-outlined">${toggleIcon}</span>
+            <span>${toggleLabel}</span>
+          </button>
+        </div>
+      `;
+    }
 
-      card.innerHTML = headerHTML;
+    card.innerHTML = headerHTML;
 
-      // Body Container layout
-      const bodyContainer = document.createElement('div');
-      bodyContainer.className = 'card-body';
-      
-      if (msg.role === 'user') {
-        renderUserCardBody(msg, bodyContainer);
+    // Body layout
+    const bodyContainer = document.createElement('div');
+    bodyContainer.className = 'card-body';
+
+    if (msg.role === 'user') {
+      renderUserCardBody(msg, bodyContainer);
+    } else {
+      if (!isCollapsed) {
+        const rawText = getRawMessageText(msg);
+        const processedText = parseSpeakableTags(rawText);
+        const rawHtml = marked.parse(processedText);
+        const cleanHtml = DOMPurify.sanitize(rawHtml, purifyOptions);
+        bodyContainer.innerHTML = cleanHtml;
+        bodyContainer.querySelectorAll('pre code').forEach(block => {
+          hljs.highlightElement(block);
+        });
+        appState.renderCache.set(msg.id, bodyContainer.innerHTML);
       } else {
-        // If expanded initially, populate body
-        if (!isCollapsed) {
-          const rawText = getRawMessageText(msg);
-          const processedText = parseSpeakableTags(rawText);
-          const rawHtml = marked.parse(processedText);
-          const cleanHtml = DOMPurify.sanitize(rawHtml, purifyOptions);
-          bodyContainer.innerHTML = cleanHtml;
-          bodyContainer.querySelectorAll('pre code').forEach(block => {
-            hljs.highlightElement(block);
-          });
-          appState.renderCache.set(msg.id, bodyContainer.innerHTML);
-        }
+        bodyContainer.style.display = 'none';
       }
-      
-      card.appendChild(bodyContainer);
-      contentDiv.appendChild(card);
-    });
+    }
 
-    groupSection.appendChild(contentDiv);
+    card.appendChild(bodyContainer);
 
-    // Footer toggler setup
-    const footerDiv = document.createElement('div');
-    footerDiv.className = 'group-footer';
-    footerDiv.innerHTML = `
-      <button class="group-toggle-btn" data-action="toggle-group" data-group-id="${group.id}" aria-label="${headerLabel}">
-        <span class="material-symbols-outlined">${headerIcon}</span>
-        <span>${headerLabel}</span>
-      </button>
-    `;
-    groupSection.appendChild(footerDiv);
+    // If expanded and needs a footer, append it
+    if (msg.role === 'assistant' && !isCollapsed) {
+      const footer = document.createElement('div');
+      footer.className = 'card-footer';
+      footer.innerHTML = `
+        <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="Thu gọn tin nhắn">
+          <span class="material-symbols-outlined">expand_less</span>
+          <span>Thu gọn tin nhắn</span>
+        </button>
+      `;
+      card.appendChild(footer);
+    } else if (msg.role === 'user' && appState.expandedUserState.get(msg.id)) {
+      const footer = document.createElement('div');
+      footer.className = 'card-footer';
+      footer.innerHTML = `
+        <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="Thu gọn tin nhắn">
+          <span class="material-symbols-outlined">expand_less</span>
+          <span>Thu gọn tin nhắn</span>
+        </button>
+      `;
+      card.appendChild(footer);
+    }
 
-    messageList.appendChild(groupSection);
+    messageList.appendChild(card);
   });
 }
 
@@ -1031,12 +1067,12 @@ function setupEvents() {
 
   // Delegated clicks inside messages listing (Copy code, speech spans, expansions)
   document.getElementById('message-list').addEventListener('click', (e) => {
-    // Group expand/collapse toggle
-    const toggleGroupBtn = e.target.closest('[data-action="toggle-group"]');
-    if (toggleGroupBtn) {
+    // Card-level expand/collapse toggle
+    const toggleCardBtn = e.target.closest('[data-action="toggle-card"]');
+    if (toggleCardBtn) {
       e.stopPropagation();
-      const groupId = toggleGroupBtn.getAttribute('data-group-id');
-      toggleGroupCollapse(groupId);
+      const msgId = toggleCardBtn.getAttribute('data-id');
+      toggleMessageCard(msgId);
       return;
     }
 
@@ -1058,35 +1094,22 @@ function setupEvents() {
       return;
     }
 
-    // User message expand
-    const seeMoreBtn = e.target.closest('.see-more-btn');
-    if (seeMoreBtn) {
-      e.stopPropagation();
-      const msgId = seeMoreBtn.getAttribute('data-id');
-      const isExpanded = appState.expandedUserState.get(msgId);
-      appState.expandedUserState.set(msgId, !isExpanded);
-      const cardBody = seeMoreBtn.closest('.card-body');
-      const message = appState.messages.find(m => m.id === msgId);
-      renderUserCardBody(message, cardBody);
-      return;
-    }
-
     // Assistant header click (expands card)
     const assistantHeader = e.target.closest('.message-card.assistant .card-header');
-    if (assistantHeader) {
+    if (assistantHeader && !e.target.closest('[data-action="toggle-card"]') && !e.target.closest('.speak')) {
       e.stopPropagation();
       const card = assistantHeader.closest('.message-card.assistant');
       const msgId = card.getAttribute('data-id');
-      toggleAssistantCollapse(msgId, card);
+      toggleMessageCard(msgId);
       return;
     }
 
     // Expand card if clicked anywhere on a collapsed card
     const assistantCardCollapsed = e.target.closest('.message-card.assistant.collapsed');
-    if (assistantCardCollapsed) {
+    if (assistantCardCollapsed && !e.target.closest('[data-action="toggle-card"]') && !e.target.closest('.speak')) {
       e.stopPropagation();
       const msgId = assistantCardCollapsed.getAttribute('data-id');
-      toggleAssistantCollapse(msgId, assistantCardCollapsed);
+      toggleMessageCard(msgId);
       return;
     }
   });

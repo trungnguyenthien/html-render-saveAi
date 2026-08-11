@@ -388,86 +388,66 @@ h1, h2, h3, h4, h5, h6 {
   gap: 24px;
 }
 
-/* Conversation Group Container */
-.conversation-group {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  margin-bottom: 32px;
-  box-shadow: var(--shadow-1);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.group-header {
-  background-color: var(--color-surface-variant);
-  padding: 12px 16px;
+/* Chat Group Divider */
+.chat-group-divider {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  text-align: center;
+  margin: 16px 0 8px 0;
+  width: 100%;
+}
+
+.chat-group-divider::before,
+.chat-group-divider::after {
+  content: '';
+  flex: 1;
   border-bottom: 1px solid var(--color-border);
-  user-select: none;
 }
 
-.group-title {
+.chat-group-tag {
+  background-color: var(--color-surface-variant);
+  color: var(--color-on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin: 0 10px;
   font-family: 'Outfit', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-on-surface);
 }
 
-.group-toggle-btn {
+/* Card Toggler Button & Footer */
+.card-toggle-btn {
   background: none;
   border: none;
   color: var(--color-primary);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  transition: background-color var(--transition-standard), color var(--transition-standard);
-  min-height: 36px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color var(--transition-standard);
+  font-family: 'Inter', sans-serif;
+  user-select: none;
+  min-height: 28px;
 }
 
-.group-toggle-btn:hover {
+.card-toggle-btn:hover {
   background-color: rgba(26, 115, 232, 0.08);
 }
 
-.group-toggle-btn:active {
-  background-color: rgba(26, 115, 232, 0.15);
+.card-toggle-btn span {
+  font-size: 16px;
 }
 
-.group-toggle-btn span {
-  font-size: 18px;
-}
-
-.group-content {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.group-footer {
+.card-footer {
   padding: 8px 16px;
   display: flex;
   justify-content: flex-end;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-  background-color: #fafafa;
-}
-
-/* Collapsed Group states */
-.conversation-group.collapsed .group-content,
-.conversation-group.collapsed .group-footer {
-  display: none;
-}
-
-.conversation-group.collapsed {
-  margin-bottom: 16px;
+  background-color: rgba(0, 0, 0, 0.015);
 }
 
 /* Message Cards */
