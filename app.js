@@ -443,6 +443,37 @@ function sortEnglishVoices(voicesList) {
   });
 }
 
+function isVoiceMale(voice) {
+  const name = voice.name.toLowerCase();
+  
+  // Exclude known female voice names/keywords
+  const femaleKeywords = [
+    'female', 'samantha', 'karen', 'moira', 'linh', 'fiona', 'veena', 
+    'tessa', 'zoe', 'susan', 'hazel', 'heera', 'zira', 'haruka', 
+    'kyoko', 'sin-ji', 'mei-jia', 'sharon', 'siri voice 2'
+  ];
+  if (femaleKeywords.some(kw => name.includes(kw))) {
+    return false;
+  }
+
+  // Include known male voice names/keywords
+  const maleKeywords = [
+    'male', 'masculine', 'guy', 'nathan', 'evan', 'aaron', 'oliver', 
+    'daniel', 'alex', 'david', 'mark', 'george', 'ravi', 'james',
+    'siri voice 1', 'siri voice 3', 'siri voice 4'
+  ];
+  if (maleKeywords.some(kw => name.includes(kw))) {
+    return true;
+  }
+
+  // Siri voices (default to male unless explicitly voice 2)
+  if (name.includes('siri') && !name.includes('voice 2')) {
+    return true;
+  }
+
+  return false;
+}
+
 function renderVoiceSettingsList() {
   const voiceLoading = document.getElementById('voice-loading');
   const voiceList = document.getElementById('voice-list');
@@ -461,11 +492,15 @@ function renderVoiceSettingsList() {
     return;
   }
 
+  // Filter only male voices
+  const maleVoices = englishVoices.filter(isVoiceMale);
+  const displayVoices = maleVoices.length > 0 ? maleVoices : englishVoices;
+
   voiceLoading.style.display = 'none';
   voiceList.style.display = 'grid';
   voiceList.innerHTML = '';
 
-  const sortedVoices = sortEnglishVoices(englishVoices);
+  const sortedVoices = sortEnglishVoices(displayVoices);
   const activeVoiceName = localStorage.getItem('saveai:ttsVoice') || '';
 
   sortedVoices.forEach(voice => {
@@ -476,7 +511,7 @@ function renderVoiceSettingsList() {
     card.setAttribute('data-voice-name', voice.name);
 
     // Custom properties metadata
-    const isMale = ['nathan', 'evan', 'aaron', 'oliver', 'alex', 'david', 'mark', 'george', 'masculine'].some(name => voice.name.toLowerCase().includes(name));
+    const isMale = isVoiceMale(voice);
     const genderTag = isMale ? 'Giọng Nam' : 'Giọng Nữ';
     const accentTag = voice.lang.toUpperCase();
 
