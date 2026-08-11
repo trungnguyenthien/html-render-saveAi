@@ -641,9 +641,8 @@ function toggleMessageCard(msgId) {
         footer = document.createElement('div');
         footer.className = 'card-footer';
         footer.innerHTML = `
-          <button class="card-toggle-btn" data-action="toggle-card" data-id="${msgId}" aria-label="Thu gọn tin nhắn">
+          <button class="card-toggle-btn" data-action="toggle-card" data-id="${msgId}" aria-label="Thu gọn tin nhắn" title="Thu gọn tin nhắn">
             <span class="material-symbols-outlined">expand_less</span>
-            <span>Thu gọn tin nhắn</span>
           </button>
         `;
         cardEl.appendChild(footer);
@@ -660,18 +659,17 @@ function updateCardTogglerUI(cardEl, msgId, isExpanded, role) {
   const toggleBtns = cardEl.querySelectorAll('[data-action="toggle-card"]');
   toggleBtns.forEach(btn => {
     const icon = btn.querySelector('.material-symbols-outlined');
-    const label = btn.querySelector('span:not(.material-symbols-outlined)');
     const isFooterBtn = btn.closest('.card-footer') !== null;
+    const labelText = isExpanded ? (isFooterBtn ? 'Thu gọn tin nhắn' : 'Thu gọn') : 'Mở rộng';
     
     if (isExpanded) {
       if (icon) icon.textContent = 'expand_less';
-      if (label) {
-        label.textContent = isFooterBtn ? 'Thu gọn tin nhắn' : 'Thu gọn';
-      }
     } else {
       if (icon) icon.textContent = 'expand_more';
-      if (label) label.textContent = 'Mở rộng';
     }
+    
+    btn.setAttribute('aria-label', labelText);
+    btn.setAttribute('title', labelText);
   });
 }
 
@@ -701,9 +699,8 @@ function renderUserCardBody(message, container) {
         footer = document.createElement('div');
         footer.className = 'card-footer';
         footer.innerHTML = `
-          <button class="card-toggle-btn" data-action="toggle-card" data-id="${message.id}" aria-label="Thu gọn tin nhắn">
+          <button class="card-toggle-btn" data-action="toggle-card" data-id="${message.id}" aria-label="Thu gọn tin nhắn" title="Thu gọn tin nhắn">
             <span class="material-symbols-outlined">expand_less</span>
-            <span>Thu gọn tin nhắn</span>
           </button>
         `;
         cardEl.appendChild(footer);
@@ -789,9 +786,8 @@ function renderMessageList() {
               <span class="role-badge">Bạn</span>
               <span class="card-time">${formattedDate}</span>
             </div>
-            <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="${toggleLabel}">
+            <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="${toggleLabel}" title="${toggleLabel}">
               <span class="material-symbols-outlined">${toggleIcon}</span>
-              <span>${toggleLabel}</span>
             </button>
           </div>
         `;
@@ -818,9 +814,8 @@ function renderMessageList() {
             <span class="card-time">${formattedDate}</span>
           </div>
           <span class="card-header-preview">${escapeHtml(previewText)}</span>
-          <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="${toggleLabel}">
+          <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="${toggleLabel}" title="${toggleLabel}">
             <span class="material-symbols-outlined">${toggleIcon}</span>
-            <span>${toggleLabel}</span>
           </button>
         </div>
       `;
@@ -857,9 +852,8 @@ function renderMessageList() {
       const footer = document.createElement('div');
       footer.className = 'card-footer';
       footer.innerHTML = `
-        <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="Thu gọn tin nhắn">
+        <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="Thu gọn tin nhắn" title="Thu gọn tin nhắn">
           <span class="material-symbols-outlined">expand_less</span>
-          <span>Thu gọn tin nhắn</span>
         </button>
       `;
       card.appendChild(footer);
@@ -867,9 +861,8 @@ function renderMessageList() {
       const footer = document.createElement('div');
       footer.className = 'card-footer';
       footer.innerHTML = `
-        <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="Thu gọn tin nhắn">
+        <button class="card-toggle-btn" data-action="toggle-card" data-id="${msg.id}" aria-label="Thu gọn tin nhắn" title="Thu gọn tin nhắn">
           <span class="material-symbols-outlined">expand_less</span>
-          <span>Thu gọn tin nhắn</span>
         </button>
       `;
       card.appendChild(footer);
