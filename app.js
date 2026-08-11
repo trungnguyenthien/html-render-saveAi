@@ -147,10 +147,17 @@ function navigate(updateDOM, direction) {
   });
 }
 
+function getTransitionDirection(fromView, toView) {
+  const order = { 'viewer': 1, 'saved': 2, 'settings': 3 };
+  const fromOrder = order[fromView] || 1;
+  const toOrder = order[toView] || 1;
+  return toOrder >= fromOrder ? 'forward' : 'backward';
+}
+
 function navigateTo(viewName) {
   if (appState.currentView === viewName) return;
 
-  const direction = (viewName === 'saved') ? 'forward' : 'backward';
+  const direction = getTransitionDirection(appState.currentView, viewName);
 
   navigate(() => {
     // Toggle active view panel
@@ -179,6 +186,9 @@ function handleHashChange() {
   if (hash === '#/saved') {
     navigateTo('saved');
     renderSavedList();
+  } else if (hash === '#/settings') {
+    navigateTo('settings');
+    renderVoiceSettingsList();
   } else {
     // Default fallback to viewer view
     navigateTo('viewer');
@@ -258,6 +268,9 @@ function updateRecentChips() {
 function loadVoices() {
   if (window.speechSynthesis) {
     voices = window.speechSynthesis.getVoices();
+    if (appState.currentView === 'settings') {
+      renderVoiceSettingsList();
+    }
   }
 }
 
@@ -270,6 +283,15 @@ if (window.speechSynthesis) {
 
 function getBestVoiceForLang(langCode) {
   const targetPrefix = langCode.substring(0, 2).toLowerCase(); // 'en'
+  
+  if (targetPrefix === 'en') {
+    const savedVoiceName = localStorage.getItem('saveai:ttsVoice');
+    if (savedVoiceName) {
+      const matched = voices.find(v => v.name === savedVoiceName);
+      if (matched) return matched;
+    }
+  }
+
   const filtered = voices.filter(v => {
     if (!v.lang) return false;
     const vLang = v.lang.replace('_', '-').toLowerCase();
@@ -389,6 +411,151 @@ function clearSpeakingState() {
     activeSpeakingSpan = null;
   }
   currentUtterance = null;
+}
+
+// TTS Voice Settings page helpers
+function sortEnglishVoices(voicesList) {
+  const preferredNames = ['nathan', 'evan', 'aaron', 'oliver', 'alex'];
+  
+  return voicesList.slice().sort((a, b) => {
+    const aLang = a.lang.toLowerCase();
+    const bLang = b.lang.toLowerCase();
+    const aName = a.name.toLowerCase();
+    const bName = b.name.toLowerCase();
+
+    const aIsUS = aLang.startsWith('en-us');
+    const bIsUS = bLang.startsWith('en-us');
+
+    // 1. Prioritize en-US
+    if (aIsUS && !bIsUS) return -1;
+    if (!aIsUS && bIsUS) return 1;
+
+    // 2. Prioritize preferred names
+    const aPrefIdx = preferredNames.findIndex(name => aName.includes(name));
+    const bPrefIdx = preferredNames.findIndex(name => bName.includes(name));
+    
+    if (aPrefIdx !== -1 && bPrefIdx === -1) return -1;
+    if (aPrefIdx === -1 && bPrefIdx !== -1) return 1;
+    if (aPrefIdx !== -1 && bPrefIdx !== -1) return aPrefIdx - bPrefIdx;
+
+    // 3. Alphabetical fallback
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function renderVoiceSettingsList() {
+  const voiceLoading = document.getElementById('voice-loading');
+  const voiceList = document.getElementById('voice-list');
+  if (!voiceLoading || !voiceList) return;
+
+  const allVoices = window.speechSynthesis.getVoices();
+  const englishVoices = allVoices.filter(v => v.lang.toLowerCase().startsWith('en'));
+
+  if (englishVoices.length === 0) {
+    voiceLoading.style.display = 'block';
+    voiceLoading.innerHTML = `
+      <span class="material-symbols-outlined text-warning" style="font-size: 40px; color: var(--color-error);">warning</span>
+      <p style="margin-top: 8px;">Không tìm thấy giọng đọc tiếng Anh nào trên trình duyệt/thiết bị này.</p>
+    `;
+    voiceList.style.display = 'none';
+    return;
+  }
+
+  voiceLoading.style.display = 'none';
+  voiceList.style.display = 'grid';
+  voiceList.innerHTML = '';
+
+  const sortedVoices = sortEnglishVoices(englishVoices);
+  const activeVoiceName = localStorage.getItem('saveai:ttsVoice') || '';
+
+  sortedVoices.forEach(voice => {
+    const isSelected = activeVoiceName ? (voice.name === activeVoiceName) : false;
+    
+    const card = document.createElement('div');
+    card.className = `voice-card ${isSelected ? 'selected' : ''}`;
+    card.setAttribute('data-voice-name', voice.name);
+
+    // Custom properties metadata
+    const isMale = ['nathan', 'evan', 'aaron', 'oliver', 'alex', 'david', 'mark', 'george', 'masculine'].some(name => voice.name.toLowerCase().includes(name));
+    const genderTag = isMale ? 'Giọng Nam' : 'Giọng Nữ';
+    const accentTag = voice.lang.toUpperCase();
+
+    card.innerHTML = `
+      <div class="voice-card-radio-wrapper">
+        <div class="voice-radio-circle"></div>
+      </div>
+      <div class="voice-card-info">
+        <div class="voice-card-name-row">
+          <span class="voice-name">${escapeHtml(voice.name)}</span>
+          ${isSelected ? '<span class="voice-status-badge">Đang dùng</span>' : ''}
+        </div>
+        <div class="voice-card-meta">
+          <span class="voice-meta-badge accent-badge">${accentTag}</span>
+          <span class="voice-meta-badge gender-badge">${genderTag}</span>
+          ${voice.localService ? '<span class="voice-meta-badge local-badge">Offline</span>' : ''}
+        </div>
+      </div>
+      <div class="voice-card-actions">
+        <button class="voice-play-demo-btn" data-voice-name="${escapeHtml(voice.name)}" title="Nghe thử giọng này" aria-label="Nghe thử giọng này">
+          <span class="material-symbols-outlined">play_circle</span>
+        </button>
+      </div>
+    `;
+
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.voice-play-demo-btn')) return;
+      selectVoice(voice.name);
+    });
+
+    voiceList.appendChild(card);
+  });
+}
+
+function selectVoice(voiceName) {
+  localStorage.setItem('saveai:ttsVoice', voiceName);
+  renderVoiceSettingsList();
+  showToast(`Đã chọn giọng đọc "${voiceName}"`);
+}
+
+function playVoiceDemo(voiceName) {
+  if (!window.speechSynthesis) return;
+
+  window.speechSynthesis.cancel();
+
+  const allVoices = window.speechSynthesis.getVoices();
+  const voice = allVoices.find(v => v.name === voiceName);
+  if (!voice) return;
+
+  const demoText = `Hello! This is a test of the ${voice.name} voice accent. How does it sound?`;
+  
+  const utterance = new SpeechSynthesisUtterance(demoText);
+  utterance.voice = voice;
+  utterance.lang = voice.lang;
+
+  const playBtns = document.querySelectorAll(`.voice-play-demo-btn[data-voice-name="${CSS.escape(voiceName)}"]`);
+  playBtns.forEach(btn => {
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (icon) icon.textContent = 'volume_up';
+    btn.classList.add('playing');
+  });
+
+  utterance.onend = () => {
+    playBtns.forEach(btn => {
+      const icon = btn.querySelector('.material-symbols-outlined');
+      if (icon) icon.textContent = 'play_circle';
+      btn.classList.remove('playing');
+    });
+  };
+
+  utterance.onerror = () => {
+    playBtns.forEach(btn => {
+      const icon = btn.querySelector('.material-symbols-outlined');
+      if (icon) icon.textContent = 'play_circle';
+      btn.classList.remove('playing');
+    });
+  };
+
+  window.speechSynthesis.speak(utterance);
 }
 
 // Copy Code Clipboard Handler
@@ -1117,6 +1284,19 @@ function setupEvents() {
       }
     }
   });
+
+  // Settings view clicks
+  const settingsVoiceList = document.getElementById('voice-list');
+  if (settingsVoiceList) {
+    settingsVoiceList.addEventListener('click', (e) => {
+      const playBtn = e.target.closest('.voice-play-demo-btn');
+      if (playBtn) {
+        e.stopPropagation();
+        const voiceName = playBtn.getAttribute('data-voice-name');
+        playVoiceDemo(voiceName);
+      }
+    });
+  }
 
   // Routing changes
   window.addEventListener('hashchange', handleHashChange);
