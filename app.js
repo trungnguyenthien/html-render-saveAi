@@ -63,6 +63,34 @@ function parseSpeakableTags(text) {
     .replace(vnRegex, (match, p1) => `<em class="vn-text">${p1}</em>`);
 }
 
+// Convert parsed <strong> tags (markdown bold) into speakable spans
+function makeBoldSpeakable(html) {
+  if (!html) return '';
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+
+  tempDiv.querySelectorAll('strong').forEach(strongEl => {
+    const text = strongEl.textContent.trim();
+    if (!text) return;
+
+    const span = document.createElement('span');
+    span.className = 'speak speak-en';
+    span.setAttribute('data-lang', 'en');
+    span.setAttribute('tabindex', '0');
+    span.setAttribute('role', 'button');
+    span.setAttribute('aria-label', `Play English pronunciation: ${text}`);
+
+    // Move children from strong to span
+    while (strongEl.firstChild) {
+      span.appendChild(strongEl.firstChild);
+    }
+
+    strongEl.parentNode.replaceChild(span, strongEl);
+  });
+
+  return tempDiv.innerHTML;
+}
+
 function formatTime(dateStr) {
   if (!dateStr) return '';
   try {
@@ -608,7 +636,8 @@ function toggleMessageCard(msgId) {
         const rawText = getRawMessageText(message);
         const processedText = parseSpeakableTags(rawText);
         const rawHtml = marked.parse(processedText);
-        const cleanHtml = DOMPurify.sanitize(rawHtml, purifyOptions);
+        const speakableHtml = makeBoldSpeakable(rawHtml);
+        const cleanHtml = DOMPurify.sanitize(speakableHtml, purifyOptions);
 
         bodyContainer.innerHTML = cleanHtml;
         bodyContainer.querySelectorAll('pre code').forEach(block => {
@@ -664,7 +693,9 @@ function renderUserCardBody(message, container) {
 
   if (rawText.length <= 100) {
     const processedText = parseSpeakableTags(rawText);
-    const html = DOMPurify.sanitize(marked.parse(processedText), purifyOptions);
+    const rawHtml = marked.parse(processedText);
+    const speakableHtml = makeBoldSpeakable(rawHtml);
+    const html = DOMPurify.sanitize(speakableHtml, purifyOptions);
     container.innerHTML = `<div class="user-text-content">${html}</div>`;
     return;
   }
@@ -673,7 +704,9 @@ function renderUserCardBody(message, container) {
 
   if (isExpanded) {
     const processedText = parseSpeakableTags(rawText);
-    const html = DOMPurify.sanitize(marked.parse(processedText), purifyOptions);
+    const rawHtml = marked.parse(processedText);
+    const speakableHtml = makeBoldSpeakable(rawHtml);
+    const html = DOMPurify.sanitize(speakableHtml, purifyOptions);
     container.innerHTML = `<div class="user-text-content">${html}</div>`;
     
     // Show/create footer
@@ -818,7 +851,8 @@ function renderMessageList() {
         const rawText = getRawMessageText(msg);
         const processedText = parseSpeakableTags(rawText);
         const rawHtml = marked.parse(processedText);
-        const cleanHtml = DOMPurify.sanitize(rawHtml, purifyOptions);
+        const speakableHtml = makeBoldSpeakable(rawHtml);
+        const cleanHtml = DOMPurify.sanitize(speakableHtml, purifyOptions);
         bodyContainer.innerHTML = cleanHtml;
         bodyContainer.querySelectorAll('pre code').forEach(block => {
           hljs.highlightElement(block);
